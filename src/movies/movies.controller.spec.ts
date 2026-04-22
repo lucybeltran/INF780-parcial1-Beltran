@@ -1,3 +1,4 @@
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, NotFoundException } from '@nestjs/common';
 import request from 'supertest';
@@ -12,6 +13,7 @@ const mockMoviesService = {
   findOne: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
+  search: jest.fn(),
 };
 
 const movieData = {
@@ -71,5 +73,75 @@ describe('MoviesController (Integration)', () => {
     await app.close();
   });
 
-  // Aquí las pruebas
+  // =========================
+  // SEARCH (SECCIÓN C)
+  // =========================
+  describe('GET /movies/search', () => {
+
+    // C1: sin filtros
+    it('debe retornar 200 y un array', async () => {
+      mockMoviesService.search = jest.fn().mockResolvedValue([mockMovie]);
+
+      const res = await request(app.getHttpServer())
+        .get('/movies/search')
+        .expect(200);
+
+      expect(res.body[0]).toMatchObject({
+  title: 'Inception',
+  director: 'Christopher Nolan',
 });
+      expect(mockMoviesService.search).toHaveBeenCalledWith({});
+    });
+
+    // C2: filtro por género
+    it('debe filtrar por género', async () => {
+      mockMoviesService.search = jest.fn().mockResolvedValue([mockMovie]);
+
+      await request(app.getHttpServer())
+        .get('/movies/search?genre=drama')
+        .expect(200);
+
+      expect(mockMoviesService.search).toHaveBeenCalledWith({
+        genre: 'drama',
+      });
+    });
+
+    // C3: conversión a number (IMPORTANTE)
+    it('debe convertir year y minRating a number', async () => {
+      mockMoviesService.search = jest.fn().mockResolvedValue([mockMovie]);
+
+      await request(app.getHttpServer())
+        .get('/movies/search?year=2010&minRating=8.5')
+        .expect(200);
+
+      expect(mockMoviesService.search).toHaveBeenCalledWith({
+        year: 2010,
+        minRating: 8.5,
+      });
+    });
+
+    // C4: genre inválido
+    it('debe retornar 422 si genre es inválido', async () => {
+      await request(app.getHttpServer())
+        .get('/movies/search?genre=invalid')
+        .expect(422);
+    });
+
+    // C5: year fuera de rango
+    it('debe retornar 422 si year es inválido', async () => {
+      await request(app.getHttpServer())
+        .get('/movies/search?year=1500')
+        .expect(422);
+    });
+
+    // C6: minRating fuera de rango
+    it('debe retornar 422 si minRating es inválido', async () => {
+      await request(app.getHttpServer())
+        .get('/movies/search?minRating=11')
+        .expect(422);
+    });
+
+  });
+
+});
+
